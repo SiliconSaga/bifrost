@@ -284,7 +284,46 @@ graph TD
 
 A potential later phase that explores *Visual* continuity. These architectures aim to solve the "Portal Problem" (seeing/moving between games) without requiring a unified game engine.
 
-### Visual Portals (The "NDI" Protocol)
+### The Server Side: "Headless" Sunshine
+
+Desktop environment not needed, just an **X Server** with a **Virtual Display**. Spin up ephemeral game servers that output video streams instead of just game state.
+
+* **The Tool:** **Wolf** (from the *Games on Whales* project).
+* **Why:** Wolf is a rewrite of the NVIDIA GameStream protocol specifically designed for Docker/Kubernetes. It doesn't just run Sunshine; it creates a container with a virtual GPU display socket.
+* **The Pod:** It spins up, starts an X server with no monitor attached (using NVIDIA's `ConnectedMonitor` driver option), launches *only* your specific game process (e.g., Destination Sol), and streams the output.
+* **Resource Usage:** Zero wasted RAM on desktop managers. It is just the Kernel + Xorg + Game.
+
+### The Client Side: "Headless" Moonlight
+
+This is the trickier part. Standard Moonlight expects to open a window on your monitor.
+
+* **For "Transition Phase" (Input/Play):** You use the standard **Moonlight QT** client. It launches as a borderless window over your current game. This works out of the box.
+* **For "Portal Rendering" (Texture Feed):** You need **Moonlight Embedded** or a custom implementation like **Moonlight-Libretro**.
+* **The Trick:** You don't output to a screen. You output to a **Framebuffer** or **Pipe**.
+* **Integration:** Your Terasology client reads from that pipe and paints it onto a texture in-game. (This is significantly harder than NDI, but keeps you within the GameStream protocol).
+
+### Scenario A: The Transition Phase (Cloud Play)
+
+**Use Case:** Player enters a portal to a game they don't have installed.
+
+1. **Trigger:** Player activates Portal.
+2. **Orchestration:** Agones spins up a **Wolf Pod** containing the target game.
+3. **Connection:** Terasology launches a local **Moonlight Client** (embedded window) connecting to the Pod.
+4. **Handoff:** Player plays on the cloud instance while the local background downloader fetches assets.
+5. **Cutover:** Once local assets are ready, the Cloud Pod is terminated, and the local engine takes over.
+
+### Scenario B: The Portal Surface (Remote View)
+
+**Use Case:** Seeing the "Other World" painted on a block surface.
+
+1. **Render:** The Wolf Pod renders the view from a "Camera Entity" in the remote world.
+2. **Capture:** A modified Moonlight client (headless) receives the stream.
+3. **Texture:** Terasology captures the Moonlight frame buffer and applies it as a **Dynamic Material** to the portal block face.
+* *Note:* This requires writing a "Stream-to-Texture" adapter in Java (Terasology) that can decode the H.264 stream.
+
+### Alternatives
+
+#### Visual Portals (The "NDI" Protocol)
 
 **Goal:** Render a live view of *Destination Sol* (or another world) onto a surface inside *Terasology*.
 
@@ -297,24 +336,9 @@ A potential later phase that explores *Visual* continuity. These architectures a
 2. **Receiver:** Terasology attaches an NDI Receiver to a specific texture (e.g., a "Portal Block").
 3. **Result:** Zero-latency video texture on the LAN. No complex RTSP/RTMP encoding overhead.
 
-This was already somewhat hackily attempted to show a Terasology stream on a ComputerCraft monitor inside Minecraft during a MineCon panel years ago.
+Something similar was already somewhat hackily attempted to show a Terasology stream on a ComputerCraft monitor inside Minecraft during a MineCon panel years ago.
 
-### Seamless Transitions (Sunshine & Moonlight)
-
-**Goal:** Move the player from *Terasology* to *Destination Sol* without a cold boot.
-
-* **Technology:** **Sunshine** (Host) + **Moonlight** (Client).
-* **Sunshine:** Self-hosted game stream server. Runs in a container on the Agones/Kubernetes cluster.
-* **Moonlight:** Open-source client. Can be embedded or called as a subprocess.
-
-* **Architecture (Hybrid Delivery):**
-
-1. **The "Cloud" Bridge:** When a player enters a portal, Terasology minimizes and launches a **Moonlight** window connecting to the Agones cluster.
-2. **Instant Play:** The player controls the cloud instance immediately (15-20ms latency on LAN).
-3. **Background Handoff:** The local *Destination Sol* client silently launches in the background, syncing data.
-4. **Cutover:** Once loaded, the stream terminates, and the local window snaps into focus.
-
-### Engine Composition (Process Embedding)
+#### Engine Composition (Process Embedding)
 
 **Goal:** Running two engines "simultaneously" without crashing the JVM.
 
