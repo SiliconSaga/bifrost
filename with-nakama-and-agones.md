@@ -230,6 +230,10 @@ While we are building a custom stack, we draw inspiration from:
 * **OMI (Open Metaverse Interoperability):** Specifically the [OMI-glTF extensions](https://github.com/omigroup/gltf-extensions) for defining physics/audio in asset files.
 * **Third Room:** For the architecture of using Matrix as a data layer (even if we only use it for chat).
 
+## Another User Flow
+
+In theory, transfer between worlds within a game is conceptually the same as transfer between servers (or even games).
+
 ```mermaid
 graph TD
     subgraph Client [User's Machine]
@@ -250,15 +254,73 @@ graph TD
             GS1[GameServer: Survival A]
             GS2[GameServer: Creative B]
         end
+        
+        subgraph Federation
+            MX[Matrix Bridge]
+        end
     end
 
+    %% Auth Flow
+    TC -- 1. Authenticate (HTTP/gRPC) --> NK
+    
     %% Matchmaking Flow
-    TC -- 1. Request World Join --> NK
-    NK -- 2. Allocate GameServer --> AG
-    AG -- 3. Spin up Pod --> GS1
-    AG -- 4. Return IP:Port --> NK
-    NK -- 5. Return IP:Port --> TC
+    TC -- 2. Request World Join --> NK
+    NK -- 3. Allocate GameServer --> AG
+    AG -- 4. Spin up Pod --> GS1
+    AG -- 5. Return IP:Port --> NK
+    NK -- 6. Return IP:Port --> TC
     
     %% Gameplay Flow
-    TC -- 6. Connect (UDP/ENet) --> GS1
-```
+    TC -- 7. Connect (UDP/ENet) --> GS1
+    
+    %% Persistence Flow (Async)
+    GS1 -- 8. Save Inventory (S2S API) --> NK
+    
+    %% Chat Flow
+    TC -- Chat Msg --> NK
+    NK -.-> MX
+
+## Future Possibilities: Pixel Integration (Research Phase)
+
+A potential later phase that explores *Visual* continuity. These architectures aim to solve the "Portal Problem" (seeing/moving between games) without requiring a unified game engine.
+
+### Visual Portals (The "NDI" Protocol)
+
+**Goal:** Render a live view of *Destination Sol* (or another world) onto a surface inside *Terasology*.
+
+* **Technology:** **NDI (Network Device Interface)**.
+* **Reasoning:** Standardized, open, low-latency video-over-IP widely used in broadcast.
+* **Java Implementation:** Use the `devolay` (Java NDI bindings) library.
+
+* **Architecture:**
+1. **Sender:** Destination Sol runs in "Headless" mode but attaches an NDI Sender to its FrameBuffer instead of a physical monitor.
+2. **Receiver:** Terasology attaches an NDI Receiver to a specific texture (e.g., a "Portal Block").
+3. **Result:** Zero-latency video texture on the LAN. No complex RTSP/RTMP encoding overhead.
+
+This was already somewhat hackily attempted to show a Terasology stream on a ComputerCraft monitor inside Minecraft during a MineCon panel years ago.
+
+### Seamless Transitions (Sunshine & Moonlight)
+
+**Goal:** Move the player from *Terasology* to *Destination Sol* without a cold boot.
+
+* **Technology:** **Sunshine** (Host) + **Moonlight** (Client).
+* **Sunshine:** Self-hosted game stream server. Runs in a container on the Agones/Kubernetes cluster.
+* **Moonlight:** Open-source client. Can be embedded or called as a subprocess.
+
+* **Architecture (Hybrid Delivery):**
+
+1. **The "Cloud" Bridge:** When a player enters a portal, Terasology minimizes and launches a **Moonlight** window connecting to the Agones cluster.
+2. **Instant Play:** The player controls the cloud instance immediately (15-20ms latency on LAN).
+3. **Background Handoff:** The local *Destination Sol* client silently launches in the background, syncing data.
+4. **Cutover:** Once loaded, the stream terminates, and the local window snaps into focus.
+
+### Engine Composition (Process Embedding)
+
+**Goal:** Running two engines "simultaneously" without crashing the JVM.
+
+* **Constraint:** **Do NOT** attempt to load two Game Engines (LWJGL + LibGDX) into the same JVM. They will conflict over the OpenGL Context and static native libraries, causing immediate SIGSEGV crashes.
+* **Solution:** **OS-Level Window Reparenting**.
+* **Linux (X11):** Use `XReparentWindow`.
+* **Windows:** Use `SetParent` (Win32 API).
+
+* **Design:** Terasology acts as the "Hypervisor" (Parent Window). It launches Destination Sol as a separate child process, finds its window handle, and forcibly embeds it into a Terasology UI Canvas. This isolates the memory and contexts completely while appearing seamless to the user.
