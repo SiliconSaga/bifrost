@@ -1,6 +1,6 @@
 # Project Bifrost: Terasology Open Metaverse Architecture
 
-Imported brainstorm from Gemini with plenty of inaccuracies but it touches on some interesting overarchitectural ideas.
+Initial brainstorming draft exploring architectural ideas for a federated Metaverse.
 
 ## Overview
 
@@ -8,16 +8,16 @@ Imported brainstorm from Gemini with plenty of inaccuracies but it touches on so
 
 * **Identity & Meta:** Centralized but self-hosted via [Nakama](https://heroiclabs.com/nakama/).
   * More tooling ideally built with the spirit of https://omigroup.org/ to help bridge between games.
-* **Simulation:** Ephemeral, containerized game servers managed by [Agones](https://agones.dev/). 
+* **Simulation:** Ephemeral, containerized game servers managed by [Agones](https://agones.dev/).
   * World data is backed up and restored when a server is needed again.
 * **Data Model:** "World-Bound" character persistence (ARK-style) with similar server transfer capabilities.
   * Nakama helps here by temporarily holding serialized character data in its storage system if a player is trying to travel (world or game).
 * **Interop:** Cross-game chat and economy linking Terasology (Multiplayer Voxel World) and Destination Sol (Single Player Space Arcade Shooter).
-  * This is also powered by Nakama and chat Furthermore bridged to Matrix.
+  * This is also powered by Nakama and chat is additionally bridged to Matrix.
 
 ## High-Level Diagram
 
-In this visualization the actual game server is what runs the world pods (and has the Nakama SDK enabled). The Nakama server handles some higher level systems.
+In this visualization, the actual game server is what runs the world pods (and has the Nakama SDK enabled). The Nakama server handles some higher level systems.
 
 ```mermaid
 graph TD
@@ -62,12 +62,11 @@ graph TD
     %% Backend Logic
     PodA -- "S2S API (Transit/Verify)" --> NK
     PodB -- "S2S API (Transit/Verify)" --> NK
-
 ```
 
 ## Example Flow
 
-In theory transfer between worlds within a game is conceptually the same as transfer between servers (or even games). 
+In theory, transfer between worlds within a game is conceptually the same as transfer between servers (or even games).
 
 ```mermaid
 graph TD
@@ -114,10 +113,9 @@ graph TD
     %% Chat Flow
     TC -- Chat Msg --> NK
     NK -.-> MX
-
 ```
 
-## 3. Core Technology Stack
+## Core Technology Stack
 
 | Component | Technology | Role | Design Choice |
 | --- | --- | --- | --- |
@@ -128,72 +126,67 @@ graph TD
 | **Protocol** | **WebSocket** | Meta Transport | Real-time chat & signals for Terasology & DestSol. |
 | **Federation** | **Matrix** | Bridge | Exposes in-game chat to the open web. |
 
-## 4. Data Model: "The Transit System"
+## Data Model: "The Transit System"
 
 We strictly avoid "Universal Avatar" complexity. Data lives in the **World** (ECS) by default and only enters **Nakama** during transit.
 
-### 4.1. World-Bound Persistence (Default)
+### World-Bound Persistence (Default)
 
 * **Player Data:** Stored in Terasology's standard Chunk/Entity store (Disk/S3) within the Pod.
 * **Benefit:** Preserves complex ECS data (Mod components, block metadata) without serialization loss.
 * **Behavior:** If a player logs off and back on to *Server A*, Nakama is only used for Auth. The world loads the character from disk.
 
-### 4.2. The "Baton" Transfer (Zoning/Portals)
+### The "Baton" Transfer (Zoning/Portals)
 
 * **Scenario:** Player travels from World A (Pod A) to World B (Pod B).
 * **Flow:**
-1. **Trigger:** Collision with Portal.
-2. **Upload:** Pod A serializes Player Entity to Nakama (`writeStorage`, TTL=5min).
-3. **Handoff:** Pod A requests Pod B address from Nakama RPC.
-4. **Reconnect:** Client disconnects A, connects B.
-5. **Download:** Pod B fetches "Hot Data" from Nakama, spawns player, deletes data from Nakama.
+  1. **Trigger:** Collision with Portal.
+  2. **Upload:** Pod A serializes Player Entity to Nakama (`writeStorage`, TTL=5min).
+  3. **Handoff:** Pod A requests Pod B address from Nakama RPC.
+  4. **Reconnect:** Client disconnects A, connects B.
+  5. **Download:** Pod B fetches "Hot Data" from Nakama, spawns player, deletes data from Nakama.
 
-### 4.3. The "Upload Terminal" (Server Travel)
+### The "Upload Terminal" (Server Travel)
 
 * **Scenario:** Player wants to move character to a Friend's Server.
 * **Mechanic:** ARK-style Obelisk.
 * **Flow:** Player selects specific items to "Upload." These are removed from Local World and stored in Nakama (`persistent=true`). They can be downloaded on any other server that allows imports.
 
-### 4.4. Interoperability (The "OASIS" Layer)
+### Interoperability (The "OASIS" Layer)
 
-For some types of portable content you could transfer more than just a bit of textual descriptions.
+For some types of portable content, you could transfer more than just a bit of textual descriptions.
 
 * **Assets (OMI/glTF):**
   * Leverage Terasology's existing glTF support.
   * **Goal:** Allow runtime loading of assets based on Nakama metadata.
   * *Scenario:* User owns "Sword of OMI" (DB Item). Nakama sends URL to `.glb` file. Terasology downloads and renders it.
 
-
 * **Chat (Matrix Bridge):**
   * Run a local AppService that listens to Nakama's "Global" chat channel.
   * Forward messages to a Matrix Room (e.g., `#terasology-public:matrix.org`).
   * Allows interaction with the game world from Element/mobile devices.
-  * Allows chat bridging between distinct game worlds or even games
+  * Allows chat bridging between distinct game worlds or even games.
 
-### 5.1. The "Hyperlink" Economy (Cross-Game)
+### The "Hyperlink" Economy (Cross-Game)
 
 **Destination Sol** connects as a "Satellite Client" via WebSocket. It shares no physics with Terasology, but shares **Information**.
 
 * **The "Item Link" Protocol:**
-* **Trigger:** Player in Terasology Shift-Clicks an item (e.g., "Diamond Pickaxe") in chat.
-* **Payload:** Nakama broadcasts a structured JSON message.
-* **Presentation:** DestSol Client sees a clickable text link: `[Diamond Pickaxe]`.
-
+  * **Trigger:** Player in Terasology Shift-Clicks an item (e.g., "Diamond Pickaxe") in chat.
+  * **Payload:** Nakama broadcasts a structured JSON message.
+  * **Presentation:** DestSol Client sees a clickable text link: `[Diamond Pickaxe]`.
 
 * **The "Materialize" Logic (Limited Transfer):**
-* **Action:** DestSol player clicks the link -> Selects "Materialize."
-* **Fallback Resolution:**
-1. **Direct Match:** Does DestSol have an item ID `pickaxe`? -> No.
-2. **Icon Match:** Does the JSON specify `icon: "pickaxe"`? -> Yes. Use generic "Space Tool" sprite.
-3. **Generic Fallback:** Spawn a "Cargo Crate" item.
-
+  * **Action:** DestSol player clicks the link -> Selects "Materialize."
+  * **Fallback Resolution:**
+    1. **Direct Match:** Does DestSol have an item ID `pickaxe`? -> No.
+    2. **Icon Match:** Does the JSON specify `icon: "pickaxe"`? -> Yes. Use generic "Space Tool" sprite.
+    3. **Generic Fallback:** Spawn a "Cargo Crate" item.
 
 * **Result:** Player receives a "Cargo Crate" item named "Diamond Pickaxe".
 * **Metadata:** The Crate contains the original description text ("A sturdy tool made of diamond") in its tooltip. It has *no* functional stats in space, serving as a trophy/collectible.
 
-
-
-### 5.2. Legacy Meta Server Replacement
+### Legacy Meta Server Replacement
 
 We replace the old custom web server with Nakama primitives:
 
@@ -203,13 +196,12 @@ We replace the old custom web server with Nakama primitives:
 | **Server List** | **RPC Function:** `rpc.list_public_servers`. Queries the `servers` storage collection. Filters by heartbeat timestamp to remove zombies. |
 | **Server Registration** | **Auth-Gated Write:** Any authenticated user can write to `servers` collection to advertise their game. |
 
-### 5.3. External Federation
+### External Federation
 
 * **Matrix Bridge:** An AppService listens to the Nakama "Global" channel and forwards text to `#bifrost:matrix.org`.
 * **OMI Standards:** Item JSON payloads follow [OMI-glTF](https://github.com/omigroup/gltf-extensions) loose standards where possible.
 
-
-## 6. Implementation Roadmap
+## Implementation Roadmap
 
 ### Phase 1: The Foundation (Homelab)
 
@@ -235,7 +227,6 @@ We replace the old custom web server with Nakama primitives:
 * [ ] Containerize Terasology Headless.
 * [ ] Implement the "Baton" logic (Serialize Entity -> Nakama -> Reconnect).
 
-
 ## Reference & Inspiration
 
 While we are building a custom stack, we draw inspiration from:
@@ -244,7 +235,7 @@ While we are building a custom stack, we draw inspiration from:
 * **OMI (Open Metaverse Interoperability):** Specifically the [OMI-glTF extensions](https://github.com/omigroup/gltf-extensions) for defining physics/audio in asset files.
 * **Third Room:** For the architecture of using Matrix as a data layer (even if we only use it for chat).
 
-## Usage Example 
+## Usage Example
 
 * **Nakama:** Handles Auth ("User 123 is valid"), Chat, and Server Discovery.
 * **Terasology World:** Handles **everything else**. Your character, position, and inventory are serialized into the World Backup (the Chunk Store).
@@ -286,7 +277,6 @@ Only one example, may vary per game mode or base game.
 * **Risk Management:** If the server crashes during normal gameplay, you just roll back to the last local backup. You don't have desync issues where Nakama thinks you have an item but the World thinks you don't.
 * **Gameplay Depth:** This allows for "World-Specific" progression (keeping the survival challenge intact) while still allowing you to "ascend" to a Metaverse tier to trade or travel.
 
-
 ## Reference Scenario: "First Contact" Demo
 
 This scenario defines the requirements for the initial Proof of Concept video.
@@ -299,29 +289,25 @@ This scenario defines the requirements for the initial Proof of Concept video.
 **Sequence:**
 
 1. **The Greeting:**
-* Alice types in Terasology Global Chat: *"Greetings from the voxel world!"*
-* Bob sees the message appear in his DestSol HUD (Orange text overlay).
-* Bob replies: *"Read you loud and clear. Cruising the asteroid belt."*
-
+  * Alice types in Terasology Global Chat: *"Greetings from the voxel world!"*
+  * Bob sees the message appear in his DestSol HUD (Orange text overlay).
+  * Bob replies: *"Read you loud and clear. Cruising the asteroid belt."*
 
 2. **The Link:**
-* Alice opens inventory, Shift-Clicks her **"Gelatinous Cube"** pet.
-* Chat displays: *"Alice linked: [Gelatinous Cube]"*.
-
+  * Alice opens inventory, Shift-Clicks her **"Gelatinous Cube"** pet.
+  * Chat displays: *"Alice linked: [Gelatinous Cube]"*.
 
 3. **The View:**
-* Bob hovers over the `[Gelatinous Cube]` text in DestSol.
-* A tooltip appears showing the description: *"A bouncy green slime friend."*
-
+  * Bob hovers over the `[Gelatinous Cube]` text in DestSol.
+  * A tooltip appears showing the description: *"A bouncy green slime friend."*
 
 4. **The Transfer:**
-* Bob clicks the link and selects **"Materialize"**.
-* DestSol spawns a generic **"Stasis Pod"** item in Bob's cargo hold.
-* The Stasis Pod is labeled *"Gelatinous Cube"* and uses a generic green icon (matched via Nakama metadata).
-
+  * Bob clicks the link and selects **"Materialize"**.
+  * DestSol spawns a generic **"Stasis Pod"** item in Bob's cargo hold.
+  * The Stasis Pod is labeled *"Gelatinous Cube"* and uses a generic green icon (matched via Nakama metadata).
 
 5. **The Result:**
-* Bob jettisons the pod into space. It floats away as a physical object.
+  * Bob jettisons the pod into space. It floats away as a physical object.
 
 ### Example JSON payload
 
@@ -336,3 +322,4 @@ This scenario defines the requirements for the initial Proof of Concept video.
     "stats": { "rarity": "epic" }
   }
 }
+```
