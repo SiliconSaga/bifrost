@@ -1,6 +1,8 @@
 # Project Bifrost: Terasology Open Metaverse Architecture
 
-Initial brainstorming draft exploring architectural ideas for a federated Metaverse.
+Initial brainstorming draft exploring architectural ideas for a federated Metaverse including using the existing OSS Nakama game server project as a light layer atop actual game servers.
+
+Note that Nakama is an OSS game server with some additional tools that are not OSS but meant to work with it. References here will only be meant for the OSS component (excluding a newer server UI that's shiny but proprietary - the OSS version should still ship with the old dated UI)
 
 ## Overview
 
@@ -282,7 +284,9 @@ graph TD
 
 ## Future Possibilities: Pixel Integration (Research Phase)
 
-A potential later phase that explores *Visual* continuity. These architectures aim to solve the "Portal Problem" (seeing/moving between games) without requiring a unified game engine.
+A potential later phase that explores *Visual* continuity. These architectures aim to solve the "Portal Problem" (seeing/moving between games) without requiring a unified game engine. The primary option is using the combination of [Sunshine](https://github.com/LizardByte/Sunshine) - a self-hosted game streaming utility + [Moonlight](https://github.com/moonlight-stream/moonlight-qt) - which can accept such a stream in a variety of contexts.
+
+Note that [Wolf](https://github.com/games-on-whales/wolf) may be a more appropriate streaming source for containerization, and relates to Sunshine.
 
 ### The Server Side: "Headless" Sunshine
 
