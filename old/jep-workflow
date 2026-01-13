@@ -1,0 +1,56 @@
+# "JEP" Workflow and Human-AI-Swarm Engine
+
+Philosophy for "Just Enough Process" (Demicracy) & "Just Enough Porting" (Bifrost) along with enabling accelerated structured process through collaboration between humans and AI agents.
+
+## Overview: The Contributor-First Philosophy
+
+This document outlines the "connective tissue" for the Uplifted Mascot with the use cases of Demicracy and the Bifrost Protocol. Both use the overloaded acronym JEP in subtly different fashion.
+
+* **JEP ("Just Enough Process"):** A process method for Demicracy by which you dynamically scale the complexity and reach of process by the target value and available human effort & interest.
+* **JEP ("Just Enough Porting"):** A technical triage system that prioritizes the *lowest-effort, highest-impact* path for Bifrost content interoperability.
+* **Swarm Engine:** A human-centric *workflow* that leverages the "Uplifted Mascot" (AI Mentor) and other Bifrost concepts to turn the JEP triage into a **graduated learning path** for new contributors while making more content available in more places.
+
+## JEP Triage: A 4-Tiered Maturity Model
+
+While this example is specific to development of cross-game compatible content the same spirit exists in the Demicracy JEP variant: you need different things at different levels at different times. Might as well try to make that more structured!
+
+When the Bifrost bridge encounters an unknown piece of content as a player traverses from one game world to another (e.g., a `FancyChest` in the player's inventory from a game mod), it is triaged via this model:
+
+### Tier 0: Graceful Degradation (The "Mystery Box")
+* **Action:** The system *fails safely*. The `FancyChest` becomes a generic "Mystery Box" item.
+* **Key:** All original data (NBT data, inventory, lock status) is **preserved** on the mystery box. The item is not lost, just "dormant."
+* **Task:** The system automatically fires a webhook.
+
+### Tier 1: Automated Conversion (The "ETL Script")
+* **For:** Simple assets (textures, sounds, JSON block models).
+* **Action:** A 100% automated script (e.g., Python) converts the asset from one format to another (e.g., `minecraft:block.json` -> `terasology:block.prefab`).
+* **Contributor Path (Beginner):** This is a perfect **"good first issue"**. The task is: "The asset `X` needs a converter. Write a simple Python script that transforms `A` to `B` based on this example."
+
+### Tier 2: Shared Compatibility (The "Techne Bridge")
+* **For:** Common patterns (e.g., Techne models, common `PlayerLock` NBT).
+* **Action:** A one-time community effort to build a *shared library* (e.g., a `TerasologyTechneLoader` module) that provides native support for the *format*.
+* **Contributor Path (Intermediate / GSOC):** This is a fantastic **summer-of-code project**. The task is: "Design and implement a Terasology module to load and render the Techne model format."
+
+### Tier 3: AI-Assisted Porting (The "Fancy Chest")
+* **For:** Complex, unique mod logic.
+* **Action:** The system determines the content must be *ported*. This is where the AI Swarm workflow begins.
+
+## 3. The "AI Swarm" Workflow (JEP Tier 3)
+
+This workflow, managed by the "Uplifted Mascot," turns porting into a scalable, community-driven process.
+
+1.  **Task Generation:** The Tier 0 webhook *automatically* creates a "Work Contract" (a GitHub Issue) tagged `jep-tier-3` and `ai-assist-needed`.
+2.  **The "Work Contract" (GitHub Issue):** This is not a normal bug report. It is an **AI-Ready Kit** prepared by the system:
+    * **Title:** `AI Porting Contract: ironchest:diamond_chest`
+    * **Source:** Link to the (open source) `FancyChest.java` source.
+    * **Target:** A *pre-generated, failing unit test* (`TestFancyChest.java`) that defines "done."
+    * **Context:** A link to the `API_MAPPING.md` ("AI Rosetta Stone").
+3.  **The "Swarm" (Community):** A new contributor, guided by the "Uplifted Mascot" (`Gooey, how do I help with porting?`), finds this contract.
+4.  **The "AI-Mentor" Workflow:**
+    * The contributor feeds the **Kit** (Source + Test + Context) to their AI of choice (Gemini in VSCode, ChatGPT, etc.).
+    * **Prompt:** "Using the provided API mapping, port this Java source code to pass this failing unit test."
+    * They iterate with the AI, feeding it compiler errors until the test passes.
+5.  **The "Validator" (CI/CD):** The contributor submits a Pull Request. A GitHub Action automatically runs the unit test. A green checkmark proves the "contract" is fulfilled.
+6.  **The "Human Mentor" (You):** You (or a core maintainer) review the *best* PR from the "swarm." Your time is saved for high-level review, not boilerplate coding.
+
+This system *is* the new developer enablement. It provides a clear path for a contributor to "graduate" from writing small `Tier 1` scripts to tackling complex, AI-assisted `Tier 3` ports, all with an AI mentor (Gooey) guiding them along the way.
