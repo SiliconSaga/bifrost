@@ -2,371 +2,183 @@
 
 ## Vision
 
-Bifrost is an ambitious project to create a federated game metaverse—a network that connects different game servers and even different game engines, allowing players to travel between worlds, share content, and experience a unified gaming ecosystem.
+Bifrost is a game federation protocol connecting different game servers and game engines, allowing players to travel between worlds, share content, and experience a unified gaming ecosystem. It is not a single platform but a set of protocols and tools that independent communities can adopt.
 
-This document explains how the various components of the Bifrost platform work together to achieve this vision.
+This document explains how the components of Bifrost work together. For the protocol specification, see [bifrost-protocol.md](./bifrost-protocol.md). For the Nakama-based architecture exploration, see [with-nakama-and-agones.md](./with-nakama-and-agones.md).
 
 ## Core Components
 
-### 1. Uplifted Mascot System
+### Bifrost Protocol
 
-**Purpose**: Make the platform approachable and guide users through complex concepts.
-
-**What it does**:
-- Provides AI-powered assistance via project mascots (Gooey, Bill, etc.)
-- Answers questions about Bifrost protocol, JEP workflow, and game development
-- Appears in-game to help players and modders in real-time
-- Serves as the "front door" for new community members
-
-**Key Technology**: Retrieval-Augmented Generation (RAG) using Google Cloud Platform (Vertex AI, Vector Search, Gemini)
-
-**See**: [uplifted-mascot.md](./uplifted-mascot.md) for detailed architecture
-
-### 2. Bifrost Protocol
-
-**Purpose**: Enable technical connections between game servers and engines.
-
-**What it does**:
-- Defines the communication protocol for cross-server/game travel
-- Provides Bridge Agents that translate between game-specific formats
+The communication protocol for cross-server and cross-game connectivity:
+- Defines message formats for chat, presence, and travel
+- Provides game-specific integration points that translate between game formats and the protocol
 - Implements graceful degradation for incompatible content
 - Manages player data transfer and synchronization
 
-**Key Technology**: WebSocket-based protocol, Agones/Kubernetes orchestration, content mapping registry
+See [bifrost-protocol.md](./bifrost-protocol.md) for the protocol specification.
 
-**See**: [bifrost-protocol.md](./bifrost-protocol.md) for protocol specification
+### Just Enough Porting (JEP)
 
-### 3. Just Enough Porting (JEP) Workflow
+A variant of "Just Enough Process" for game content porting. See (TODO: Later link to the other JEP)
 
-**Purpose**: Make content porting feasible through a tiered triage system.
+A tiered triage system that makes content porting feasible:
 
-**What it does**:
-- Categorizes content by complexity (Tier 0-3)
-- Automates simple conversions (Tier 1)
-- Builds compatibility layers for common patterns (Tier 2)
-- Generates tasks for AI-assisted porting of complex content (Tier 3)
-- Enables community "swarm" development model
+- Tier 0: Graceful degradation (Mystery Box placeholder, data preserved)
+- Tier 1: Automated conversion (data-driven assets, simple mappings)
+- Tier 2: Compatibility layers (common format support built once, benefits many mods)
+- Tier 3: AI-assisted porting (complex mods, community "swarm" development)
 
-**Key Philosophy**: Do the minimum work necessary, preserve data, enable future improvements
+The key philosophy is: do the minimum work necessary, always preserve data, and enable future improvements. Full details are in [bifrost-protocol.md](./bifrost-protocol.md).
+
+### Content Registry
+
+A shared database tracking content equivalence mappings (e.g. `terasology:stone` <-> `minecraft:stone`), conversion status, and compatibility layer availability. Grows organically as the community ports content.
 
 ## How They Work Together
 
-### The User Journey
+### Example: Content sharing across games
 
-#### 1. Discovery Phase
+A player travels from one game to another carrying a item from a mod (e.g. a "Diamond Chest" from the "morechests" mod):
+
+1. The protocol layer detects `morechests:diamond_chest` in the player's inventory.
+2. Checks the Content Registry for a mapping. Not found.
+3. JEP triage determines: Tier 3 (complex logic, requires porting).
+4. Graceful degradation converts it to a "Mystery Box" with all original data preserved.
+5. A GitHub issue is generated for community/AI-assisted porting.
+6. The player can continue playing. When the port is eventually completed, the Content Registry is updated and future players can travel with the full functionality "Diamond Chest" in their inventory.
+
+### The Contribution Cycle
+
+#### Discovery Phase
 
 **User**: "I want to connect my Minecraft server to a Terasology server. How do I start?"
 
-**Uplifted Mascot (Gooey)**: 
+**Uplifted Mascot** (chatbot backed by RAG system to documentation):
+
 - Explains the Bifrost protocol in friendly terms
-- Guides user through Bridge Agent installation
+- Guides user through setup and configuration
 - Points to relevant documentation
 - Answers follow-up questions
 
-**Technology**: RAG system retrieves Bifrost protocol docs, explains concepts using Gooey's personality
+#### Implementation Phase
 
-#### 2. Implementation Phase
-
-**User**: Installs Bridge Agent, configures connection
+**User**: Installs and configures needed components to bridge games.
 
 **Bifrost Protocol**:
-- Bridge Agent connects to Relay Server
+
+- Onboards new game server to the network
 - Registers server capabilities
 - Begins handling protocol messages (chat, presence, travel)
 
-**Uplifted Mascot (Gooey)**:
+**Uplifted Mascot (chatbot)**:
+
 - Provides troubleshooting help if connection fails
 - Explains error messages
 - Suggests configuration improvements
 
-#### 3. Content Sharing Phase
+#### Content Sharing Phase
 
-**Scenario**: Player travels from Minecraft to Terasology with a modded item (Fancy Chest)
+**Scenario**: A player travels from one game to another carrying a item from a mod (e.g. a "Diamond Chest" from the "morechests" mod)
 
 **Bifrost Protocol + JEP Workflow**:
-1. Bridge Agent detects `ironchest:diamond_chest` in player inventory
-2. Checks Content Registry for mapping → Not found
-3. JEP Triage determines: Tier 3 (complex logic, requires porting)
-4. **Graceful Degradation**: Converts to "Mystery Box" with preserved data
-5. **Task Generation**: Creates GitHub issue for AI Swarm to port the mod
-6. Player can continue playing, item preserved for future conversion
 
-**Uplifted Mascot (Gooey)**:
+1. The protocol layer detects `morechests:diamond_chest` in the player's inventory.
+2. Checks the Content Registry for a mapping. Not found.
+3. JEP triage determines: Tier 3 (complex logic, requires porting).
+4. Graceful degradation converts it to a "Mystery Box" with all original data preserved.
+5. A GitHub issue is generated for community/AI-assisted porting.
+6. The player can continue playing. When the port is eventually completed, the Content Registry is updated and future players can travel with the full functionality "Diamond Chest" in their inventory.
+
+**Uplifted Mascot (chatbot)**:
+
 - Explains to player why their chest became a Mystery Box
 - Describes the conversion process
 - Links to GitHub issue if player wants to help
 
-#### 4. Community Contribution Phase
+#### Community Contribution Phase
 
-**Community Member**: Sees GitHub issue for Fancy Chest porting
+**Community Member**: Sees GitHub issue for chest porting
 
 **JEP Workflow**:
-- Member uses AI tools (ChatGPT, Copilot, etc.) with API mapping guide
+
+- Member can use AI tools (Claude, Copilot, etc.) with API mapping guide
 - Attempts port following JEP Tier 3 workflow
 - Submits Pull Request with ported code
 
 **Automated Validation**:
+
 - CI/CD runs tests
 - Validates compilation
 - Checks against unit tests
 
-**Uplifted Mascot (Gooey)**:
+**Uplifted Mascot (chatbot)**:
+
 - Can answer questions about the porting process
 - Explains API mappings
 - Guides through JEP workflow steps
 
 **Result**: 
+
 - Best port is merged
 - Content Registry updated
 - Future players can travel with full Fancy Chest functionality
 
-### The Technical Flow
+AI tools (Claude, Cursor, Copilot, Codex, etc.) amplify what individual contributors can accomplish, making the "swarm" development model practical.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Community Member                          │
-│  Asks Gooey: "How do I port a mod?"                         │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Uplifted Mascot (RAG System)                   │
-│  Retrieves: JEP workflow docs, API mapping guide            │
-│  Responds: Step-by-step porting instructions                │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Community Member Uses AI Tools                 │
-│  Follows JEP workflow, attempts port                        │
-│  Submits PR with ported code                                │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Automated Validation (CI/CD)                    │
-│  Tests compilation, runs unit tests                         │
-│  Validates against JEP requirements                         │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Content Registry Updated                       │
-│  New mapping: minecraft:fancy_chest → terasology:fancy_chest│
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Bifrost Protocol Bridge Agent                  │
-│  Uses Content Registry for player travel                    │
-│  Converts items using new mapping                           │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Player Experience                         │
-│  Travels with Fancy Chest, full functionality preserved     │
-└─────────────────────────────────────────────────────────────┘
-```
+## Infrastructure
 
-## Shared Infrastructure
+Key infrastructure components from the Yggdrasil ecosystem:
 
-### Google Cloud Platform
-
-Both Uplifted Mascot and Bifrost Protocol leverage GCP:
-
-**Uplifted Mascot**:
-- GKE: Hosts RAG service API
-- Vertex AI: Embeddings, Vector Search, Gemini LLM
-- Cloud Storage: Document storage (optional)
-
-**Bifrost Protocol**:
-- GKE: Hosts Relay Server, Bridge Agents (optional)
-- Agones: Game server orchestration
-- Cloud SQL/Cloud Storage: Content Registry, player data
-
-**Shared Benefits**:
-- Single infrastructure stack
-- Cost optimization through shared resources
-- Consistent deployment patterns
-- Integration with existing Terasology GKE setup
-
-### Git + CI/CD
-
-**Uplifted Mascot**:
-- Git repositories store documentation
-- Jenkins triggers document ingestion on commits
-- Updates Vector Search with new knowledge
-
-**Bifrost Protocol**:
-- Git repositories store protocol specs, Bridge Agent code
-- GitHub Issues track content conversion tasks
-- CI/CD validates ported content
-
-**JEP Workflow**:
-- GitHub Issues = Work Contracts
-- Pull Requests = Community contributions
-- CI/CD = Automated validation
+- **Nordri**: K8s cluster substrate (Agones, Crossplane, networking)
+- **Tafl**: Game server orchestration via Agones
+- **Knarr**: Chat bridging and community organizing
+- **Nidavellir/Vegvisir**: Gateway routing, Keycloak identity
+- **Heimdall**: Observability
 
 ## Development Phases
 
-### Phase 1: Foundation (Current)
+For Bifrost and related components themselves.
 
-**Uplifted Mascot**:
-- ✅ Design RAG architecture
-- ✅ Plan GCP integration
-- 🔄 Build ingestion pipeline
-- ⏳ Deploy RAG service
-- ⏳ Create web frontend
+### Phase 1: Foundation (current)
 
-**Bifrost Protocol**:
-- ✅ Design protocol specification
-- ✅ Define JEP triage system
-- ⏳ Implement MVO (ghost/chat)
-- ⏳ Build Bridge Agent for Terasology
-- ⏳ Build Bridge Agent for Minecraft
+- Protocol specification defined
+- JEP triage system designed
+- Nakama explored as a potential backend (see [with-nakama-and-agones.md](./with-nakama-and-agones.md))
+- "First Contact" POC in design: bidirectional chat between Terasology and DestinationSol via Nakama, proving cross-game connectivity without requiring multiplayer in DS
 
-**JEP Workflow**:
-- ✅ Define tier system
-- ⏳ Create API mapping guide
-- ⏳ Build task generation system
-- ⏳ Set up GitHub workflow
+### Phase 2: Minimum Viable Oasis (MVO)
 
-### Phase 2: MVO (Minimum Viable Oasis)
-
-**Goal**: Prove the concept with tangible "gasp" moment
-
-**Deliverables**:
-- Players in Minecraft and Terasology can see each other as "ghosts"
-- Cross-game chat works
-- Gooey can answer questions about Bifrost in-game
-- Basic JEP workflow demonstrated with simple content
+Prove the concept with a tangible "gasp" moment:
+- Cross-game chat between Terasology and DestinationSol
+- Basic presence/ghost visibility between games
+- Simple content transfer demonstrated (item links)
 
 ### Phase 3: Expansion
 
-**Goal**: Grow the network and improve capabilities
-
-**Deliverables**:
-- Cross-server travel (Minecraft → Minecraft)
+- Cross-server travel within the same game (server-to-server portals)
 - Content Registry with initial mappings
-- AI Swarm workflow functional
-- Multiple games connected (add Destination Sol, etc.)
+- Additional games connected (Minecraft and others)
+- AI-assisted porting workflow operational
 
 ### Phase 4: Maturity
 
-**Goal**: Self-sustaining ecosystem
+- Cross-game travel with content translation
+- Robust Content Registry with community contributions
+- Federated relay infrastructure (multiple independent relay servers)
+- Production-ready deployment
 
-**Deliverables**:
-- Cross-game travel (Minecraft → Terasology)
-- Robust Content Registry
-- Active community contributing ports
-- Multiple Relay Servers (federation)
-- Production-ready infrastructure
+## Design Principles
 
-## Community Engagement Strategy
-
-### The "Gasp" Moment
-
-The MVO (ghost/chat between games) provides the initial excitement that draws people in. It's tangible, shareable, and proves the vision is real.
-
-### The "Building Materials"
-
-Uplifted Mascot and JEP workflow provide the tools that enable community contribution:
-- **Gooey**: Makes complex concepts approachable
-- **JEP Workflow**: Makes porting feasible for non-experts
-- **AI Tools**: Amplify individual contributor capabilities
-
-### The "Virtuous Cycle"
-
-1. More content ported → More seamless travel
-2. More seamless travel → More player interest
-3. More player interest → More modder engagement
-4. More modder engagement → More content ported
-
-## Key Design Principles
-
-### 1. Approachability
-
-Complex federated game protocols are intimidating. Uplifted Mascot makes them accessible through friendly AI assistance.
-
-### 2. Feasibility
-
-Full porting of every mod is impossible. JEP triage makes the problem tractable by doing "just enough" work.
-
-### 3. Federation
-
-Not a walled garden. Anyone can run a Bridge Agent and join the network. Protocol, not platform.
-
-### 4. Graceful Degradation
-
-When perfect translation isn't possible, preserve data and enable future improvement rather than failing.
-
-### 5. Community Empowerment
-
-Provide tools (AI, workflows, documentation) that amplify what individuals can contribute.
-
-## Success Metrics
-
-### Technical
-
-- Number of games connected
-- Number of content mappings in registry
-- Cross-game travel success rate
-- Content conversion completion rate
-
-### Community
-
-- Active contributors to content porting
-- Questions answered by Uplifted Mascot
-- Servers running Bridge Agents
-- Players using cross-game travel
-
-### Ecosystem
-
-- Content available across multiple games
-- Compatibility layers benefiting multiple mods
-- Self-sustaining contribution workflow
-- Growing network of connected servers
-
-## Getting Started
-
-### For Project Maintainers
-
-1. Review this overview and component documents
-2. Choose which component to start with (recommend: Uplifted Mascot for immediate value)
-3. Set up GCP infrastructure
-4. Begin implementation following phase plan
-
-### For Contributors
-
-1. Join community Discord/Forum
-2. Try the Uplifted Mascot (when available)
-3. Look for "Work Contracts" (GitHub issues) to contribute
-4. Test early implementations and provide feedback
-
-### For Server Operators
-
-1. Wait for Bridge Agent release
-2. Deploy Bridge Agent to your server
-3. Connect to Relay Server
-4. Enable cross-server/game travel for your players
+- **Federation**: Not a walled garden. Anyone can integrate with the protocol and join the network. Protocol, not platform.
+- **Graceful degradation**: When perfect translation isn't possible, preserve data and enable future improvement rather than failing.
+- **Feasibility**: Full porting of all content from every game and mod is impossible. JEP makes the problem tractable by doing "just enough."
+- **Community empowerment**: Provide tools, workflows, and documentation that amplify what individuals can contribute.
 
 ## Related Projects
 
-- **Terasology**: Open-source voxel game, primary target for Bifrost
-- **Demicracy**: Governance platform that can showcase Bifrost servers
-- **Destination Sol**: 2D space game, potential Bifrost target
-- **Agones/Shulker**: Kubernetes game server orchestration
-
-## Conclusion
-
-Bifrost is an ambitious vision made feasible through:
-- **Modern AI**: Makes content porting tractable
-- **Federated Architecture**: Enables organic growth
-- **Community Tools**: Amplify individual contributions
-- **Graceful Design**: Handles complexity without breaking
-
-The combination of Uplifted Mascot (approachability), Bifrost Protocol (technical foundation), and JEP Workflow (feasibility) creates a platform that can grow from a simple "ghost" demo into a true federated game metaverse.
-
-The timing is right. The technology is ready. The community is waiting for something this audacious.
-
+- **Terasology**: Open-source voxel game with multiplayer. Primary Bifrost target.
+- **DestinationSol**: Open-source 2D space game (single-player). Secondary Bifrost target, proving connectivity without multiplayer.
+- **Tafl**: Game server orchestration layer (Agones + Django). Manages server lifecycles for Bifrost-connected games.
+- **Knarr**: Planned integration/bridging layer for community communications and agentic workflows. Chat bridging and community organizing responsibilities are migrating here.
+- **Uplifted Mascot**: AI-powered project assistant (RAG system). Separate project, may eventually integrate via Knarr. See `components/uplifted-mascot/` for its own docs.

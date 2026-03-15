@@ -1,25 +1,21 @@
-# Project Bifrost: Terasology Open Metaverse Architecture
+# Bifrost with Nakama and Agones
 
-Initial brainstorming draft exploring architectural ideas for a federated Metaverse including using the existing OSS Nakama game server project as a light layer atop actual game servers.
+Brainstorming draft exploring Nakama as the coordination layer for a federated metaverse connecting Terasology and DestinationSol.
 
-Note that Nakama is an OSS game server with some additional tools that are not OSS but meant to work with it. References here will only be meant for the OSS component (excluding a newer server UI that's shiny but proprietary - the OSS version should still ship with the old dated UI)
+Nakama is an OSS game server with some additional proprietary tools. References here target only the OSS component (excluding the newer proprietary server UI — the OSS version ships with the older UI).
 
 ## Overview
 
-**Project Bifrost** is an architectural transformation of the **Terasology** ecosystem (and its satellite, **Destination Sol**) into a federated, interoperable OASIS-style Metaverse.
+This document explores an architectural transformation of the Terasology ecosystem (and DestinationSol) into a federated, interoperable metaverse using Nakama and Agones.
 
-* **Identity & Meta:** Centralized but self-hosted via [Nakama](https://heroiclabs.com/nakama/).
-  * More tooling ideally built with the spirit of https://omigroup.org/ to help bridge between games.
-* **Simulation:** Ephemeral, containerized game servers managed by [Agones](https://agones.dev/).
-  * World data is backed up and restored when a server is needed again.
-* **Data Model:** "World-Bound" character persistence (ARK-style) with similar server transfer capabilities.
-  * Nakama helps here by temporarily holding serialized character data in its storage system if a player is trying to travel (world or game).
-* **Interop:** Cross-game chat and economy linking Terasology (Multiplayer Voxel World) and Destination Sol (Single Player Space Arcade Shooter).
-  * This is also powered by Nakama and chat is additionally bridged to Matrix.
+- **Identity and Meta**: Centralized but self-hosted via [Nakama](https://heroiclabs.com/nakama/). Additional tooling built in the spirit of [OMI Group](https://omigroup.org/) to help bridge between games.
+- **Simulation**: Ephemeral, containerized game servers managed by [Agones](https://agones.dev/). World data is backed up and restored when a server is needed again.
+- **Data Model**: "World-Bound" character persistence (ARK-style) with server transfer capabilities. Nakama temporarily holds serialized character data during travel.
+- **Interop**: Cross-game chat and economy linking Terasology (multiplayer voxel world) and DestinationSol (single-player space shooter). Powered by Nakama, with chat additionally bridged to Matrix.
 
 ## High-Level Architecture
 
-In this visualization, the actual game server is what runs the world pods (and has the Nakama SDK enabled). The Nakama server handles some higher level systems.
+The actual game server runs the world pods (with Nakama SDK enabled). The Nakama server handles higher-level systems.
 
 ```mermaid
 graph TD
@@ -31,24 +27,24 @@ graph TD
 
     subgraph "Cluster"
         direction TB
-        
+
         subgraph "Control Plane (Nakama)"
             NK[Nakama Server]
             DB[(PostgreSQL)]
             NK --> DB
-            
+
             note1[Roles: Identity, Chat, Module Index, Server List]
         end
-        
+
         subgraph "Simulation Plane (Agones)"
             AG[Agones Controller]
             PodA[World A]
             PodB[World B]
-            
+
             AG -.-> PodA
             AG -.-> PodB
         end
-        
+
         subgraph "Bridges"
             MX[Matrix AppService]
             MX <--> NK
@@ -60,7 +56,7 @@ graph TD
     TC -- "WebSocket (Chat/Auth)" --> NK
     DS -- "WebSocket (Chat/Economy)" --> NK
     MatrixClient -- "Matrix Protocol" --> MX
-    
+
     %% Backend Logic
     PodA -- "S2S API (Transit/Verify)" --> NK
     PodB -- "S2S API (Transit/Verify)" --> NK
@@ -70,112 +66,98 @@ graph TD
 
 | Component | Technology | Role | Design Choice |
 | --- | --- | --- | --- |
-| **Backend** | **Nakama** (Go) | Master Server | Handles Identity, Chat, RPCs, and "Cloud" Storage. |
-| **Database** | **PostgreSQL** | Persistence | Standard SQL DB (Replacing CockroachDB recommendation). |
-| **Orchestrator** | **Agones** (K8s) | Fleet Manager | Manages lifecycle of ephemeral Terasology Headless pods. |
-| **Protocol** | **UDP / ENet** | Game Transport | Native Terasology networking. |
-| **Protocol** | **WebSocket** | Meta Transport | Real-time chat & signals for Terasology & DestSol. |
-| **Federation** | **Matrix** | Bridge | Exposes in-game chat to the open web. |
+| Backend | Nakama (Go) | Master Server | Identity, Chat, RPCs, and "Cloud" Storage |
+| Database | PostgreSQL | Persistence | Standard SQL DB (replacing CockroachDB recommendation) |
+| Orchestrator | Agones (K8s) | Fleet Manager | Manages lifecycle of ephemeral Terasology Headless pods |
+| Protocol | UDP / ENet | Game Transport | Native Terasology networking |
+| Protocol | WebSocket | Meta Transport | Real-time chat and signals for Terasology and DestSol |
+| Chat | Matrix | Bridge | Exposes in-game communication to the open web |
 
-## Data Model: "The Transit System"
+## Data Model: The Transit System
 
-We strictly avoid "Universal Avatar" complexity. Data lives in the **World** (ECS) by default and only enters **Nakama** during transit.
+We strictly avoid "Universal Avatar" complexity. Data lives in the World (ECS) by default and only enters Nakama during transit.
 
-### Philosophy: World-Bound Persistence
-* **Nakama:** Handles Auth ("User 123 is valid"), Chat, and Server Discovery.
-* **Terasology World:** Handles **everything else**. Your character, position, and inventory are serialized into the World Backup (the Chunk Store).
+### World-Bound Persistence
 
-**Why this fits Terasology:**
-* **Perfect Data Fidelity:** You never have to convert your complex ECS components into generic JSON. The "State" stays in the format the engine understands best (Java binaries/Protobuf).
-* **Risk Management:** If the server crashes during normal gameplay, you just roll back to the last local backup. You don't have desync issues where Nakama thinks you have an item but the World thinks you don't.
-* **Simplifies the ECS:** You don't need to rewrite the `InventoryComponent` to be "Cloud-Native." It stays local. You only need to write a **Serializer** for the specific moment of transfer.
+- Nakama handles auth ("User 123 is valid"), chat, and server discovery.
+- Terasology World handles everything else. Character, position, and inventory are serialized into the World Backup (the Chunk Store).
+
+Why this fits Terasology:
+
+- **Data fidelity**: No need to convert complex ECS components into generic JSON. State stays in the format the engine understands (Java binaries/Protobuf).
+- **Risk management**: If the server crashes, roll back to the last local backup. No desync between Nakama and the World.
+- **ECS simplicity**: No need to rewrite `InventoryComponent` to be cloud-native. It stays local. You only need a serializer for the specific moment of transfer.
 
 ### The "Baton" Transfer (Zoning/Portals)
 
-**Scenario:** Player travels from World A (Pod A) to World B (Pod B). This is the "Stargate" model.
+Scenario: Player travels from World A (Pod A) to World B (Pod B). The "Stargate" model.
 
-**Flow:**
-1. **Trigger:** Collision with Portal in World A.
-2. **Upload:** Pod A serializes Player Entity to Nakama (`writeStorage`, TTL=5min).
-   * *Terasology* deletes those entities from the local world.
-   * *Nakama* now holds the "Ghost" data.
-3. **Handoff:** Pod A requests Pod B address from Nakama RPC.
-4. **Reconnect:** Client disconnects from A, connects to B.
-5. **Download:** Pod B fetches "Hot Data" from Nakama (`readStorage`), spawns player, and deletes data from Nakama.
+1. Trigger: Collision with Portal in World A.
+2. Upload: Pod A serializes Player Entity to Nakama (`writeStorage`, TTL=5min). Terasology deletes those entities from the local world. Nakama now holds the "Ghost" data.
+3. Handoff: Pod A requests Pod B address from Nakama RPC.
+4. Reconnect: Client disconnects from A, connects to B.
+5. Download: Pod B fetches "Hot Data" from Nakama (`readStorage`), spawns player, and deletes data from Nakama.
 
 ### The "Upload Terminal" (Server Travel)
 
-**Scenario:** Player wants to move character to a Friend's Server.
-**Mechanic:** ARK-style Obelisk / Upload Terminal.
+Scenario: Player wants to move character to a friend's server. ARK-style Obelisk / Upload Terminal.
 
-**Flow:**
-* Player selects specific items to "Upload."
-* These are removed from the Local World and stored in Nakama (`persistent=true`).
-* They can be downloaded on any other server that allows imports.
+- Player selects specific items to upload.
+- Items are removed from the local world and stored in Nakama (`persistent=true`).
+- They can be downloaded on any other server that allows imports.
 
 ## Interoperability (The "OASIS" Layer)
 
 For some types of portable content, we can transfer more than just textual descriptions.
 
 ### Assets (OMI/glTF)
-* Leverage Terasology's existing glTF support.
-* **Goal:** Allow runtime loading of assets based on Nakama metadata.
-* **Scenario:** User owns "Sword of OMI" (DB Item). Nakama sends URL to `.glb` file. Terasology downloads and renders it.
+
+Leverage Terasology's existing glTF support for runtime loading of assets based on Nakama metadata. Example: user owns "Sword of Whimsy" which is know in the registry. Nakama sends URL to `.glb` (binary `.glTF) file. Terasology downloads and renders it.
 
 ### Chat (Matrix Bridge)
-* Run a local AppService that listens to Nakama's "Global" chat channel.
-* Forward messages to a Matrix Room (e.g., `#terasology-public:matrix.org`).
-* **Benefit:** Allows interaction with the game world from Element/mobile devices and bridges distinct game worlds.
+
+A local Matrix AppService listens to Nakama's "Global" chat channel and forwards messages to a Matrix Room (e.g. `#terasology-public:matrix.org`). This allows interaction with the game world from Element/mobile devices/web.
 
 ### The "Hyperlink" Economy (Cross-Game)
 
-**Destination Sol** connects as a "Satellite Client" via WebSocket. It shares no physics with Terasology, but shares **Information**.
+DestinationSol connects as a "Satellite Client" via WebSocket. It shares no physics with Terasology, but shares information.
 
-#### The "Item Link" Protocol
-* **Trigger:** Player in Terasology Shift-Clicks an item (e.g., "Diamond Pickaxe") in chat.
-* **Payload:** Nakama broadcasts a structured JSON message.
-* **Presentation:** DestSol Client sees a clickable text link: `[Diamond Pickaxe]`.
+#### Item Link Protocol
 
-#### The "Materialize" Logic (Limited Transfer)
-* **Action:** DestSol player clicks the link -> Selects "Materialize."
-* **Fallback Resolution:**
-  1. **Direct Match:** Does DestSol have an item ID `pickaxe`? -> No.
-  2. **Icon Match:** Does the JSON specify `icon: "pickaxe"`? -> Yes. Use generic "Space Tool" sprite.
-  3. **Generic Fallback:** Spawn a "Cargo Crate" item.
+Basic:
 
-* **Result:** Player receives a "Cargo Crate" item named "Diamond Pickaxe".
-* **Metadata:** The Crate contains the original description text ("A sturdy tool made of diamond") in its tooltip. It has *no* functional stats in space, serving as a trophy/collectible.
+- Trigger: Player in Terasology shift-clicks an item (e.g. "Diamond Pickaxe") in chat.
+- Payload: Nakama broadcasts a structured JSON message.
+- Presentation: DestSol client sees a clickable text link: `[Diamond Pickaxe]`.
+
+Advanced: 
+
+- Action: DestSol player clicks the link and selects "Materialize."
+- Fallback resolution:
+  1. Direct match: Does DestSol have an item ID `pickaxe`? No.
+  2. Icon match: Does the JSON specify `icon: "pickaxe"`? Yes. Use generic "Space Tool" sprite.
+  3. Generic fallback: Spawn a "Cargo Crate" item.
+- Result: Player receives a "Cargo Crate" named "Diamond Pickaxe" with the original description as tooltip text. No functional stats in space — serves as a trophy/collectible.
 
 ## Reference Scenario: "First Contact" Demo
 
-This scenario defines the requirements for the initial Proof of Concept video demonstrating the inter-game link.
+Requirements for the initial POC demonstrating the inter-game link. See also the dedicated First Contact design spec in `2026-03-14-bifrost-first-contact-design.md`.
 
-**Actors:**
-1. **Alice** (Playing Terasology on PC).
-2. **Bob** (Playing Destination Sol on Laptop).
+Actors:
+1. Alice (playing Terasology)
+2. Bob (playing DestinationSol)
 
-**Sequence:**
+Sequence:
 
-1. **The Greeting:**
-   * Alice types in Terasology Global Chat: *"Greetings from the voxel world!"*
-   * Bob sees the message appear in his DestSol HUD (Orange text overlay).
-   * Bob replies: *"Read you loud and clear. Cruising the asteroid belt."*
+1. **The Greeting**: Alice types in Terasology Global Chat: "Greetings from the voxel world!" Bob sees the message in his DestSol HUD. Bob replies: "Read you loud and clear. Cruising the asteroid belt."
 
-2. **The Link:**
-   * Alice opens inventory, Shift-Clicks her **"Gelatinous Cube"** pet.
-   * Chat displays: *"Alice linked: [Gelatinous Cube]"*.
+2. **The Link** (stretch goal): Alice opens inventory, shift-clicks her "Gelatinous Cube" pet. Chat displays: "Alice linked: [Gelatinous Cube]".
 
-3. **The View:**
-   * Bob hovers over the `[Gelatinous Cube]` text in DestSol.
-   * A tooltip appears showing the description: *"A bouncy green slime friend."*
+3. **The View** (stretch goal): Bob hovers over the `[Gelatinous Cube]` text in DestSol. A tooltip shows the description: "A bouncy green slime friend."
 
-4. **The Transfer:**
-   * Bob clicks the link and selects **"Materialize"**.
-   * DestSol spawns a generic **"Stasis Pod"** item in Bob's cargo hold.
-   * The Stasis Pod is labeled *"Gelatinous Cube"* and uses a generic green icon (matched via Nakama metadata).
+4. **The Transfer** (stretch goal): Bob clicks the link and selects "Materialize." DestSol spawns a "Stasis Pod" item in Bob's cargo hold, labeled "Gelatinous Cube" with a generic green icon.
 
-5. **The Result:**
-   * Bob jettisons the pod into space. It floats away as a physical object.
+5. **The Result** (stretch goal): Bob jettisons the pod into space. It floats away as a physical object.
 
 ### Example JSON payload
 
@@ -186,7 +168,7 @@ This scenario defines the requirements for the initial Proof of Concept video de
     "type": "item_link",
     "name": "Gelatinous Cube",
     "description": "A bouncy green slime friend.",
-    "icon_hint": "slime_green", 
+    "icon_hint": "slime_green",
     "stats": { "rarity": "epic" }
   }
 }
@@ -194,47 +176,49 @@ This scenario defines the requirements for the initial Proof of Concept video de
 
 ## Legacy Meta Server Replacement
 
-We replace the old custom web server with Nakama primitives:
+The old custom Terasology web server can be replaced with Nakama primitives:
 
 | Legacy Feature | Nakama Implementation |
 | --- | --- |
-| **Module Index** | **Public Storage Object:** System writes JSON blob to `configuration/module_index`. Clients read it via `readStorage`. Support for ETags/Versioning. |
-| **Server List** | **RPC Function:** `rpc.list_public_servers`. Queries the `servers` storage collection. Filters by heartbeat timestamp to remove zombies. |
-| **Server Registration** | **Auth-Gated Write:** Any authenticated user can write to `servers` collection to advertise their game. |
+| Module Index | Public Storage Object: system writes JSON blob to `configuration/module_index`. Clients read via `readStorage`. |
+| Server List | RPC Function: `rpc.list_public_servers`. Queries the `servers` storage collection. Filters by heartbeat timestamp. |
+| Server Registration | Auth-Gated Write: any authenticated user can write to `servers` collection to advertise their game. |
 
 ## Implementation Roadmap
 
 ### Phase 1: The Foundation (Homelab)
-* [ ] Deploy **PostgreSQL** & **Nakama** via Docker Compose.
-* [ ] Configure Nakama with a "System" user for admin tasks.
-* [ ] **Test:** Verify Terasology & DestSol can connect via simple Java SDK "Hello World."
 
-### Phase 2: The Satellite (Destination Sol)
-* [ ] Add `nakama-java-sdk` to Destination Sol.
-* [ ] Implement "Metaverse HUD" (Chat overlay).
-* [ ] Implement "Materialize" logic (JSON parsing -> Item Spawn).
+- [ ] Deploy PostgreSQL and Nakama (Docker Compose or k8s manifests on Nordri)
+- [ ] Configure Nakama with a "System" user for admin tasks
+- [ ] Verify Terasology and DestSol can connect via simple Java SDK "Hello World"
+
+### Phase 2: The Satellite (DestinationSol)
+
+- [ ] Add nakama-java SDK to DestinationSol
+- [ ] Implement chat overlay (banner-based for POC)
+- [ ] Implement Materialize logic (JSON parsing to item spawn)
 
 ### Phase 3: The Core (Terasology Client)
-* [ ] Implement `Module:NakamaAuth` (Steam/Device Login).
-* [ ] Replace Legacy Module Index fetcher with Nakama Storage reader.
-* [ ] Implement Chat Bridge (NUI Chat -> Nakama Socket).
 
-### Phase 4: The Fleet (Agones & Zoning)
-* [ ] Deploy **Agones** to K8s.
-* [ ] Containerize Terasology Headless.
-* [ ] Implement the "Baton" logic (Serialize Entity -> Nakama -> Reconnect).
+- [ ] Implement NakamaSubSystem (device/Steam login)
+- [ ] Replace legacy Module Index fetcher with Nakama Storage reader
+- [ ] Implement chat bridge (Gestalt chat events to Nakama socket)
 
-## Reference & Inspiration
+### Phase 4: The Fleet (Agones and Zoning)
 
-While we are building a custom stack, we draw inspiration from:
+- [ ] Deploy Agones to K8s (via Nordri/Tafl)
+- [ ] Containerize Terasology Headless
+- [ ] Implement the "Baton" logic (serialize entity to Nakama, reconnect, download)
 
-* **V-Sekai:** For the spirit of using Godot/OSS engines for social virtual worlds / VR.
-* **OMI (Open Metaverse Interoperability):** Specifically the [OMI-glTF extensions](https://github.com/omigroup/gltf-extensions) for defining physics/audio in asset files.
-* **Third Room:** For the architecture of using Matrix as a data layer (even if we only use it for chat).
+## Reference and Inspiration
 
-## Another User Flow
+- **V-Sekai**: Spirit of using Godot/OSS engines for social virtual worlds and VR.
+- **OMI (Open Metaverse Interoperability)**: Specifically the [OMI-glTF extensions](https://github.com/omigroup/gltf-extensions) for defining physics/audio in asset files.
+- **Third Room**: Architecture of using Matrix as a data layer (even if we only use it for chat).
 
-In theory, transfer between worlds within a game is conceptually the same as transfer between servers (or even games).
+## World Transfer User Flow
+
+Transfer between worlds within a game is conceptually the same as transfer between servers (or even games).
 
 ```mermaid
 graph TD
@@ -244,19 +228,19 @@ graph TD
 
     subgraph Cluster
         direction TB
-        
+
         subgraph Control_Plane [Nakama Namespace]
             NK[Nakama Server]
             DB[(Postgres)]
             NK --> DB
         end
-        
+
         subgraph Game_Fleet [Agones Namespace]
             AG[Agones Controller]
             GS1[GameServer: Survival A]
             GS2[GameServer: Creative B]
         end
-        
+
         subgraph Federation
             MX[Matrix Bridge]
         end
@@ -264,91 +248,83 @@ graph TD
 
     %% Auth Flow
     TC -- 1. Authenticate (HTTP/gRPC) --> NK
-    
+
     %% Matchmaking Flow
     TC -- 2. Request World Join --> NK
     NK -- 3. Allocate GameServer --> AG
     AG -- 4. Spin up Pod --> GS1
     AG -- 5. Return IP:Port --> NK
     NK -- 6. Return IP:Port --> TC
-    
+
     %% Gameplay Flow
     TC -- 7. Connect (UDP/ENet) --> GS1
-    
+
     %% Persistence Flow (Async)
     GS1 -- 8. Save Inventory (S2S API) --> NK
-    
+
     %% Chat Flow
     TC -- Chat Msg --> NK
     NK -.-> MX
+```
 
 ## Future Possibilities: Pixel Integration (Research Phase)
 
-A potential later phase that explores *Visual* continuity. These architectures aim to solve the "Portal Problem" (seeing/moving between games) without requiring a unified game engine. The primary option is using the combination of [Sunshine](https://github.com/LizardByte/Sunshine) - a self-hosted game streaming utility + [Moonlight](https://github.com/moonlight-stream/moonlight-qt) - which can accept such a stream in a variety of contexts.
+A potential later phase exploring visual continuity — solving the "Portal Problem" (seeing/moving between games) without requiring a unified game engine. The primary option is [Sunshine](https://github.com/LizardByte/Sunshine) (self-hosted game streaming) + [Moonlight](https://github.com/moonlight-stream/moonlight-qt) (stream client). [Wolf](https://github.com/games-on-whales/wolf) may be more appropriate for containerized streaming.
 
-Note that [Wolf](https://github.com/games-on-whales/wolf) may be a more appropriate streaming source for containerization, and relates to Sunshine.
+### Server Side: Headless Streaming
 
-### The Server Side: "Headless" Sunshine
+No desktop environment needed — just an X Server with a virtual display. Spin up ephemeral game servers that output video streams.
 
-Desktop environment not needed, just an **X Server** with a **Virtual Display**. Spin up ephemeral game servers that output video streams instead of just game state.
+- Wolf (Games on Whales project) is a rewrite of the NVIDIA GameStream protocol for Docker/Kubernetes. It creates a container with a virtual GPU display socket.
+- The pod starts an X server with no monitor (NVIDIA `ConnectedMonitor` driver option), launches the game process, and streams the output.
+- Zero wasted RAM on desktop managers — just Kernel + Xorg + Game.
 
-* **The Tool:** **Wolf** (from the *Games on Whales* project).
-* **Why:** Wolf is a rewrite of the NVIDIA GameStream protocol specifically designed for Docker/Kubernetes. It doesn't just run Sunshine; it creates a container with a virtual GPU display socket.
-* **The Pod:** It spins up, starts an X server with no monitor attached (using NVIDIA's `ConnectedMonitor` driver option), launches *only* your specific game process (e.g., Destination Sol), and streams the output.
-* **Resource Usage:** Zero wasted RAM on desktop managers. It is just the Kernel + Xorg + Game.
+### Client Side: Headless Moonlight
 
-### The Client Side: "Headless" Moonlight
+Standard Moonlight expects to open a window on your monitor.
 
-This is the trickier part. Standard Moonlight expects to open a window on your monitor.
+- **Transition Phase** (input/play): Standard Moonlight QT client launches as a borderless window over your current game. Works out of the box.
+- **Portal Rendering** (texture feed): Moonlight Embedded or a custom implementation outputs to a framebuffer or pipe. Terasology reads from that pipe and paints it onto an in-game texture. Harder than NDI, but stays within the GameStream protocol.
 
-* **For "Transition Phase" (Input/Play):** You use the standard **Moonlight QT** client. It launches as a borderless window over your current game. This works out of the box.
-* **For "Portal Rendering" (Texture Feed):** You need **Moonlight Embedded** or a custom implementation like **Moonlight-Libretro**.
-* **The Trick:** You don't output to a screen. You output to a **Framebuffer** or **Pipe**.
-* **Integration:** Your Terasology client reads from that pipe and paints it onto a texture in-game. (This is significantly harder than NDI, but keeps you within the GameStream protocol).
+### Scenario A: Cloud Play Transition
 
-### Scenario A: The Transition Phase (Cloud Play)
+Player enters a portal to a game they don't have installed:
 
-**Use Case:** Player enters a portal to a game they don't have installed.
+1. Player activates portal.
+2. Agones spins up a Wolf Pod containing the target game.
+3. Terasology launches a local Moonlight client (embedded window) connecting to the pod.
+4. Player plays on the cloud instance while the local background downloader fetches assets.
+5. Once local assets are ready, the cloud pod is terminated and the local engine takes over.
 
-1. **Trigger:** Player activates Portal.
-2. **Orchestration:** Agones spins up a **Wolf Pod** containing the target game.
-3. **Connection:** Terasology launches a local **Moonlight Client** (embedded window) connecting to the Pod.
-4. **Handoff:** Player plays on the cloud instance while the local background downloader fetches assets.
-5. **Cutover:** Once local assets are ready, the Cloud Pod is terminated, and the local engine takes over.
+### Scenario B: Portal Surface (Remote View)
 
-### Scenario B: The Portal Surface (Remote View)
+Seeing the "Other World" painted on a block surface:
 
-**Use Case:** Seeing the "Other World" painted on a block surface.
+1. The Wolf Pod renders the view from a "Camera Entity" in the remote world.
+2. A headless Moonlight client receives the stream.
+3. Terasology captures the frame buffer and applies it as a dynamic material to the portal block face.
 
-1. **Render:** The Wolf Pod renders the view from a "Camera Entity" in the remote world.
-2. **Capture:** A modified Moonlight client (headless) receives the stream.
-3. **Texture:** Terasology captures the Moonlight frame buffer and applies it as a **Dynamic Material** to the portal block face.
-* *Note:* This requires writing a "Stream-to-Texture" adapter in Java (Terasology) that can decode the H.264 stream.
+Note: this requires a "Stream-to-Texture" adapter in Java (Terasology) that can decode the H.264 stream.
 
 ### Alternatives
 
-#### Visual Portals (The "NDI" Protocol)
+#### NDI Protocol
 
-**Goal:** Render a live view of *Destination Sol* (or another world) onto a surface inside *Terasology*.
+Render a live view of DestinationSol (or another world) onto a surface inside Terasology using NDI (Network Device Interface) — standardized, low-latency video-over-IP. Java implementation via `devolay` (Java NDI bindings).
 
-* **Technology:** **NDI (Network Device Interface)**.
-* **Reasoning:** Standardized, open, low-latency video-over-IP widely used in broadcast.
-* **Java Implementation:** Use the `devolay` (Java NDI bindings) library.
+1. Sender: DestinationSol runs headless with an NDI Sender attached to its FrameBuffer.
+2. Receiver: Terasology attaches an NDI Receiver to a portal block texture.
+3. Result: Near-zero-latency video texture on the LAN.
 
-* **Architecture:**
-1. **Sender:** Destination Sol runs in "Headless" mode but attaches an NDI Sender to its FrameBuffer instead of a physical monitor.
-2. **Receiver:** Terasology attaches an NDI Receiver to a specific texture (e.g., a "Portal Block").
-3. **Result:** Zero-latency video texture on the LAN. No complex RTSP/RTMP encoding overhead.
-
-Something similar was already somewhat hackily attempted to show a Terasology stream on a ComputerCraft monitor inside Minecraft during a MineCon panel years ago.
+A similar approach was attempted years ago to show a Terasology stream on a ComputerCraft monitor inside Minecraft during a MineCon panel, though that used local file manipulation rather than network streaming.
 
 #### Engine Composition (Process Embedding)
 
-**Goal:** Running two engines "simultaneously" without crashing the JVM.
+Running two engines simultaneously without crashing the JVM.
 
-* **Constraint:** **Do NOT** attempt to load two Game Engines (LWJGL + LibGDX) into the same JVM. They will conflict over the OpenGL Context and static native libraries, causing immediate SIGSEGV crashes.
-* **Solution:** **OS-Level Window Reparenting**.
-* **Linux (X11):** Use `XReparentWindow`.
-* **Windows:** Use `SetParent` (Win32 API).
+Do NOT load two game engines (LWJGL + LibGDX) into the same JVM — they will conflict over the OpenGL context and static native libraries, causing SIGSEGV crashes.
 
-* **Design:** Terasology acts as the "Hypervisor" (Parent Window). It launches Destination Sol as a separate child process, finds its window handle, and forcibly embeds it into a Terasology UI Canvas. This isolates the memory and contexts completely while appearing seamless to the user.
+Solution: OS-level window reparenting. Terasology acts as the "Hypervisor" (parent window), launches DestinationSol as a separate child process, finds its window handle, and embeds it into a Terasology UI canvas. This isolates memory and contexts completely while appearing seamless.
+
+- Linux (X11): `XReparentWindow`
+- Windows: `SetParent` (Win32 API)
