@@ -39,7 +39,7 @@ A shared database tracking content equivalence mappings (e.g. `terasology:stone`
 
 ### Example: Content sharing across games
 
-A player travels from one game to another carrying a item from a mod (e.g. a "Diamond Chest" from the "morechests" mod):
+A player travels from one game to another carrying an item from a mod (e.g. a "Diamond Chest" from the "morechests" mod):
 
 1. The protocol layer detects `morechests:diamond_chest` in the player's inventory.
 2. Checks the Content Registry for a mapping. Not found.
@@ -79,22 +79,9 @@ A player travels from one game to another carrying a item from a mod (e.g. a "Di
 
 #### Content Sharing Phase
 
-**Scenario**: A player travels from one game to another carrying a item from a mod (e.g. a "Diamond Chest" from the "morechests" mod)
+Same flow as the content sharing example above. When a player's item can't be translated, graceful degradation kicks in and a GitHub issue is generated for community porting.
 
-**Bifrost Protocol + JEP Workflow**:
-
-1. The protocol layer detects `morechests:diamond_chest` in the player's inventory.
-2. Checks the Content Registry for a mapping. Not found.
-3. JEP triage determines: Tier 3 (complex logic, requires porting).
-4. Graceful degradation converts it to a "Mystery Box" with all original data preserved.
-5. A GitHub issue is generated for community/AI-assisted porting.
-6. The player can continue playing. When the port is eventually completed, the Content Registry is updated and future players can travel with the full functionality "Diamond Chest" in their inventory.
-
-**Uplifted Mascot (chatbot)**:
-
-- Explains to player why their chest became a Mystery Box
-- Describes the conversion process
-- Links to GitHub issue if player wants to help
+The Uplifted Mascot chatbot can explain to the player why their item became a Mystery Box, describe the conversion process, and link to the GitHub issue if they want to help.
 
 #### Community Contribution Phase
 
@@ -122,7 +109,7 @@ A player travels from one game to another carrying a item from a mod (e.g. a "Di
 
 - Best port is merged
 - Content Registry updated
-- Future players can travel with full Fancy Chest functionality
+- Future players can travel with full Diamond Chest functionality
 
 AI tools (Claude, Cursor, Copilot, Codex, etc.) amplify what individual contributors can accomplish, making the "swarm" development model practical.
 

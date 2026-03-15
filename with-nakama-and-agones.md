@@ -112,7 +112,7 @@ For some types of portable content, we can transfer more than just textual descr
 
 ### Assets (OMI/glTF)
 
-Leverage Terasology's existing glTF support for runtime loading of assets based on Nakama metadata. Example: user owns "Sword of Whimsy" which is know in the registry. Nakama sends URL to `.glb` (binary `.glTF) file. Terasology downloads and renders it.
+Leverage Terasology's existing glTF support for runtime loading of assets based on Nakama metadata. Example: user owns "Sword of Whimsy" which is known in the registry. Nakama sends URL to a `.glb` (binary glTF) file. Terasology downloads and renders it.
 
 ### Chat (Matrix Bridge)
 
@@ -130,7 +130,7 @@ Basic:
 - Payload: Nakama broadcasts a structured JSON message.
 - Presentation: DestSol client sees a clickable text link: `[Diamond Pickaxe]`.
 
-Advanced: 
+Advanced:
 
 - Action: DestSol player clicks the link and selects "Materialize."
 - Fallback resolution:
@@ -141,7 +141,7 @@ Advanced:
 
 ## Reference Scenario: "First Contact" Demo
 
-Requirements for the initial POC demonstrating the inter-game link. See also the dedicated First Contact design spec in `2026-03-14-bifrost-first-contact-design.md`.
+Requirements for the initial POC demonstrating the inter-game link. See also the dedicated First Contact design spec in the yggdrasil `docs/plans/` directory.
 
 Actors:
 1. Alice (playing Terasology)
