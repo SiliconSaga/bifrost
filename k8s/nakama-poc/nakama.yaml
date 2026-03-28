@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nakama
+  namespace: nakama-poc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nakama
+  template:
+    metadata:
+      labels:
+        app: nakama
+    spec:
+      initContainers:
+        - name: migrate
+          image: heroiclabs/nakama:3.25.0
+          command: ["/nakama/nakama"]
+          args:
+            - "migrate"
+            - "up"
+            - "--database.address=nakama:nakama-poc-local@postgres:5432/nakama_db"
+      containers:
+        - name: nakama
+          image: heroiclabs/nakama:3.25.0
+          command: ["/nakama/nakama"]
+          args:
+            - "--database.address=nakama:nakama-poc-local@postgres:5432/nakama_db"
+          ports:
+            - containerPort: 7349
+              name: grpc
+            - containerPort: 7350
+              name: http
+            - containerPort: 7351
+              name: console
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nakama
+  namespace: nakama-poc
+spec:
+  type: NodePort
+  selector:
+    app: nakama
+  ports:
+    - name: grpc
+      port: 7349
+      targetPort: 7349
+    - name: http
+      port: 7350
+      targetPort: 7350
+    - name: console
+      port: 7351
+      targetPort: 7351
