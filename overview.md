@@ -127,12 +127,12 @@ Key infrastructure components from the Yggdrasil ecosystem:
 
 For Bifrost and related components themselves.
 
-### Phase 1: Foundation (current)
+### Phase 1: Foundation (current — implementing)
 
 - Protocol specification defined
 - JEP triage system designed
 - Nakama explored as a potential backend (see [with-nakama-and-agones.md](./with-nakama-and-agones.md))
-- "First Contact" POC in design: bidirectional chat between Terasology and DestinationSol via Nakama, proving cross-game connectivity without requiring multiplayer in DS
+- "First Contact" POC implementation underway: bidirectional chat between Terasology and DestinationSol via Nakama, proving cross-game connectivity without requiring multiplayer in DS. See [implementation plan](../../docs/plans/2026-03-15-bifrost-first-contact-plan.md)
 
 ### Phase 2: Minimum Viable Oasis (MVO)
 
